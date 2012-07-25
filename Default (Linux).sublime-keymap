@@ -1,0 +1,7 @@
+[
+	{
+		"keys": ["ctrl+alt+r"],
+		"command": "http_requester"
+	}
+
+]
