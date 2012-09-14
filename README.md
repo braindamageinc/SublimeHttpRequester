@@ -28,6 +28,6 @@ Only HTTP GET is supported at the moment. Planning to extend with POST/UPDATE/DE
 ## Installation
 Using the Sublime Text 2 Package Control plugin (http://wbond.net/sublime_packages/package_control)
 press *CTRL + SHIFT + P* and find **Package Control: Install Package** and press *Enter*.
-Find this plugin in the list by name **SublimeHttpRequester**.
+Find this plugin in the list by name **Http Requester**.
 
 Or git clone to your Sublime Text 2 packages folder directly (usually located at /Sublime Text 2/Packages/).
