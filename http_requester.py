@@ -1,8 +1,21 @@
 import webbrowser
 import httplib
 import sublime, sublime_plugin
+import socket
 
 class HttpRequesterCommand(sublime_plugin.TextCommand):
+
+    REQUEST_TYPE_GET = "GET"
+    REQUEST_TYPE_POST = "POST"
+    REQUEST_TYPE_DELETE = "DELETE"
+    REQUEST_TYPE_PUT = "PUT"
+
+    httpRequestTypes = [REQUEST_TYPE_GET, REQUEST_TYPE_POST, REQUEST_TYPE_PUT, REQUEST_TYPE_DELETE]
+
+    HTTP_URL = "http://"
+    HTTPS_URL = "https://"
+
+    httpProtocolTypes = [HTTP_URL, HTTPS_URL]
 
     def createWindowWithText(self, textToDisplay):
         newView = self.view.window().new_file()
@@ -12,8 +25,89 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
         newView.set_scratch(True)
         newView.set_read_only(True)
         newView.set_name("http response")
-        newView.set_syntax_file("Packages/Diff/Diff.tmLanguage")
+        newView.set_syntax_file("Packages/HTML/HTML.tmLanguage")
         return newView.id()
+
+    def extractHttpRequestType(self, line):
+        for type in self.httpRequestTypes:
+            if line.find(type) == 0:
+                return type
+
+        return ""
+
+    def extractWebAdressPart(self, line):
+        webAddress = ""        
+        for protocol in self.httpProtocolTypes:            
+            requestPartions = line.partition(protocol)
+            if requestPartions[1] == "":
+                webAddress = requestPartions[0]
+            else:
+                webAddress = requestPartions[2]
+                return (webAddress, protocol)
+
+        return (webAddress, self.HTTP_URL)
+
+    def extractRequestParams(self, requestLine):
+        requestType = self.extractHttpRequestType(requestLine)
+        if requestType == "":
+            requestType = self.REQUEST_TYPE_GET
+        else:
+             partition = requestLine.partition(requestType)
+             requestLine = partition[2].lstrip()
+
+        # remove http:// or https:// from URL
+        (webAddress, protocol) = self.extractWebAdressPart(requestLine)        
+
+        request_parts = webAddress.split("/")
+        request_page = ""
+        if len(request_parts) > 1:
+            for idx in range(1, len(request_parts)):
+                request_page = request_page + "/" + request_parts[idx]
+        else:
+            request_page = "/"        
+
+        url_parts = request_parts[0].split(":")
+
+        url_idx = 0
+        url = url_parts[url_idx]
+
+        if protocol == self.HTTP_URL:
+            port = httplib.HTTP_PORT
+        else:
+            port = httplib.HTTPS_PORT
+
+        if len(url_parts) > url_idx+1:
+            port = int(url_parts[url_idx+1]) 
+
+        return (url, port, request_page, requestType, protocol)
+
+    def extractExtraHeaders(self, headerLines):
+        extra_headers = {}
+        if len(headerLines) > 1:
+            for i in range(1, len(headerLines)):
+                line = headerLines[i]
+                line = line.lstrip()
+                line = line.rstrip()
+                header_parts = line.split(":")
+                if len(header_parts) == 2:
+                    header_name = header_parts[0].rstrip()
+                    header_value = header_parts[1].lstrip()
+                    extra_headers[header_name] = header_value
+
+        return extra_headers
+
+    def getParsedResponse(self, resp):
+        resp_status = "%d " % resp.status + resp.reason + "\n"
+        respText = resp_status
+
+        for header in resp.getheaders():
+            respText += header[0] + ":" + header[1] + "\n"
+
+        respText += "\n\n\n"
+        respBody = resp.read()
+        respText += respBody.decode("utf-8", "replace")
+
+        return respText
 
     def run(self, edit):
 
@@ -21,8 +115,6 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
         for region in self.view.sel():
             # Concatenate selected regions together.
             selection += self.view.substr(region)
-
-        #http://www.google.ro
 
         DEFAULT_TIMEOUT = 10
         FAKE_CURL_UA = "curl/7.21.0 (i486-pc-linux-gnu) libcurl/7.21.0 OpenSSL/0.9.8o zlib/1.2.3.4 libidn/1.15 libssh2/1.2.6"
@@ -35,42 +127,16 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
             lines[idx] = lines[idx].lstrip()
             lines[idx] = lines[idx].rstrip()
 
-        # get request web address
-        webAddress = lines[0].replace("http://", "")
-        request_parts = webAddress.split("/")
-        request_page = "/"
-        if len(request_parts) > 1:
-            request_page = "/" + request_parts[1]        
-
-        url_parts = request_parts[0].split(":")
-
-        url_idx = 0
-        if url_parts[0].find("http") != -1:
-            url_idx = 1
-
-        url = url_parts[url_idx]
-        port = httplib.HTTP_PORT
-
-        if len(url_parts) > url_idx+1:
-            port = int(url_parts[url_idx+1]) 
+        # get request web address and req. type from the first line
+        (url, port, request_page, requestType, httpProtocol) = self.extractRequestParams(lines[0])
 
         print "Requesting...."
-        print "HOST ", url, " PORT ", port ,  " PAGE: ", request_page
+        print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port ,  " PAGE: ", request_page
 
-        #get request headers
-        extra_headers = {}
-        if len(lines) > 1:
-            for i in range(1, len(lines)):
-                line = lines[i]
-                line = line.lstrip()
-                line = line.rstrip()
-                header_parts = line.split(":")
-                if len(header_parts) == 2:
-                    header_name = header_parts[0].rstrip()
-                    header_value = header_parts[1].lstrip()
-                    extra_headers[header_name] = header_value
+        #get request headers from the lines below the http address
+        extra_headers = self.extractExtraHeaders(lines)
 
-        headers = {"User-Agent": FAKE_CURL_UA, "Accept": "text/plain"}
+        headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
 
         for key in extra_headers:
             headers[key] = extra_headers[key]
@@ -79,23 +145,21 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
             print "REQ HEADERS ", key, " : ", headers[key]
         
         # make http request
-        conn = httplib.HTTPConnection(url, port, timeout = DEFAULT_TIMEOUT)
-        conn.request("GET", request_page, "", headers)
-        resp = conn.getresponse()
-        
-        resp_status = "%d " % resp.status + resp.reason + "\n"
-        respText = resp_status
+        try:
+            if httpProtocol == self.HTTP_URL:
+                conn = httplib.HTTPConnection(url, port, timeout = DEFAULT_TIMEOUT)
+            else:
+                conn = httplib.HTTPSConnection(url, port, timeout = DEFAULT_TIMEOUT)
 
-        for header in resp.getheaders():
-            respText += header[0] + ":" + header[1] + "\n"
-
-        respText += "\n\n\n"
-
-        respBody = resp.read()
-
-        respText += respBody.decode("utf-8", "replace")
-
-        conn.close()
+            conn.request(requestType, request_page, "", headers)
+            resp = conn.getresponse()
+            respText = self.getParsedResponse(resp)
+            conn.close()
+        except (socket.error, httplib.HTTPException) as e:            
+            respText = "Error connecting: " + e.strerror
+        except AttributeError as e:
+            print e
+            respText = "HTTPS not supported by your Python version"
 
         self.createWindowWithText(respText)        
         
