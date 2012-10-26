@@ -2,6 +2,7 @@ import webbrowser
 import httplib
 import sublime, sublime_plugin
 import socket
+import urllib
 
 class HttpRequesterCommand(sublime_plugin.TextCommand):
 
@@ -79,6 +80,10 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
         if len(url_parts) > url_idx+1:
             port = int(url_parts[url_idx+1]) 
 
+        # convert requested page to utf-8 and replace spaces with +
+        request_page = request_page.encode('utf-8')
+        request_page = request_page.replace(' ', '+')
+        
         return (url, port, request_page, requestType, protocol)
 
     def extractExtraHeaders(self, headerLines):
