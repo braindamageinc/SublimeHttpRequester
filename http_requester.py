@@ -18,6 +18,10 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
 
     httpProtocolTypes = [HTTP_URL, HTTPS_URL]
 
+    HTTP_POST_BODY_START = "POST_BODY:"
+
+    CONTENT_LENGTH_HEADER = "Content-lenght"
+
     def createWindowWithText(self, textToDisplay):
         newView = self.view.window().new_file()
         edit = newView.begin_edit()
@@ -83,23 +87,48 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
         # convert requested page to utf-8 and replace spaces with +
         request_page = request_page.encode('utf-8')
         request_page = request_page.replace(' ', '+')
-        
+
         return (url, port, request_page, requestType, protocol)
 
+    def getHeaderNameAndValueFromLine(self, line):
+        readingPOSTBody = False
+
+        line = line.lstrip()
+        line = line.rstrip()
+
+        if line == self.HTTP_POST_BODY_START:
+            readingPOSTBody = True
+
+        header_parts = line.split(":")
+        if len(header_parts) == 2:
+            header_name = header_parts[0].rstrip()
+            header_value = header_parts[1].lstrip()
+            return (header_name, header_value, readingPOSTBody)
+
+        return (None, None, readingPOSTBody)
+
     def extractExtraHeaders(self, headerLines):
+        requestPOSTBody = ""
+        readingPOSTBody = False
+        lastLine = False
+        numLines = len(headerLines)
+
         extra_headers = {}
         if len(headerLines) > 1:
-            for i in range(1, len(headerLines)):
-                line = headerLines[i]
-                line = line.lstrip()
-                line = line.rstrip()
-                header_parts = line.split(":")
-                if len(header_parts) == 2:
-                    header_name = header_parts[0].rstrip()
-                    header_value = header_parts[1].lstrip()
-                    extra_headers[header_name] = header_value
+            for i in range(1, numLines):
+                lastLine = (i == numLines - 1)
+                if not(readingPOSTBody):
+                    (header_name, header_value, readingPOSTBody) = self.getHeaderNameAndValueFromLine(headerLines[i])
+                    if header_name != None:
+                        extra_headers[header_name] = header_value
+                else:   #read all following lines as HTTP POST body
+                    lineBreak = ""
+                    if not(lastLine):
+                        lineBreak = "\n"
 
-        return extra_headers
+                    requestPOSTBody = requestPOSTBody + headerLines[i] + lineBreak
+
+        return (extra_headers, requestPOSTBody)
 
     def getParsedResponse(self, resp):
         resp_status = "%d " % resp.status + resp.reason + "\n"
@@ -139,12 +168,16 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
         print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port ,  " PAGE: ", request_page
 
         #get request headers from the lines below the http address
-        extra_headers = self.extractExtraHeaders(lines)
+        (extra_headers, requestPOSTBody) = self.extractExtraHeaders(lines)
 
         headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
 
         for key in extra_headers:
             headers[key] = extra_headers[key]
+
+        # if valid POST body add Content-lenght header
+        if len(requestPOSTBody) > 0:
+            headers[self.CONTENT_LENGTH_HEADER] = len(requestPOSTBody)
 
         for key in headers:
             print "REQ HEADERS ", key, " : ", headers[key]
@@ -156,7 +189,7 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
             else:
                 conn = httplib.HTTPSConnection(url, port, timeout = DEFAULT_TIMEOUT)
 
-            conn.request(requestType, request_page, "", headers)
+            conn.request(requestType, request_page, requestPOSTBody, headers)
             resp = conn.getresponse()
             respText = self.getParsedResponse(resp)
             conn.close()
