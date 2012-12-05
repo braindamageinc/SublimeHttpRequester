@@ -25,7 +25,7 @@ If you need to add extra headers just add them below the URL line, one on each l
 
 Use the right-click context menu command *Http Requester* or the keyboard shortcut *CTRL + ALT + R*  ( *COMMAND + ALT + R* on Mac OS X ).
 
-###POST usage
+###POST/PUT usage
 Just add **POST_BODY:** after any extra headers and the body on the following lines:
 
 	POST http://posttestserver.com/post.php
@@ -40,6 +40,16 @@ If you want to POST form variables:
 	POST_BODY:
 	variable1=avalue&variable2=1234&variable3=anothervalue
 
+For PUT:
+
+	PUT http://yoururl.com/puthere
+	POST_BODY:
+	this body will be sent via HTTP PUT
+
+###DELETE usage
+Same as HTTP GET:
+
+	DELETE http://yoururl.com/deletethis
 	
 ## Installation
 Using the Sublime Text 2 Package Control plugin (http://wbond.net/sublime_packages/package_control)
