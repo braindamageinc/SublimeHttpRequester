@@ -98,12 +98,12 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
 
         if line == self.HTTP_POST_BODY_START:
             readingPOSTBody = True
-
-        header_parts = line.split(":")
-        if len(header_parts) == 2:
-            header_name = header_parts[0].rstrip()
-            header_value = header_parts[1].lstrip()
-            return (header_name, header_value, readingPOSTBody)
+        else:
+            header_parts = line.split(":")
+            if len(header_parts) == 2:
+                header_name = header_parts[0].rstrip()
+                header_value = header_parts[1].lstrip()
+                return (header_name, header_value, readingPOSTBody)
 
         return (None, None, readingPOSTBody)
 
