@@ -8,7 +8,7 @@ Contact: [braindamageinc@gmail.com](mailto:braindamageinc@gmail.com)
 ##Summary
 Makes HTTP requests using the selected text as URL + headers. Usefull for testing REST APIs from Sublime Text 2 editor. 
 
-##Update: POST support added !
+##Update: GET/PUT/POST/DELETE supported
 
 ##Usage
 Select the text that represents an URL. Examples of requests:
