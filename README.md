@@ -8,7 +8,7 @@ Contact: [braindamageinc@gmail.com](mailto:braindamageinc@gmail.com)
 ##Summary
 Makes HTTP requests using the selected text as URL + headers. Usefull for testing REST APIs from Sublime Text 2 editor. 
 
-##Update: GET/PUT/POST/DELETE supported
+##Update: GET/PUT/POST/DELETE supported. F5 refreshes last request
 
 ##Usage
 Select the text that represents an URL. Examples of requests:
@@ -24,6 +24,7 @@ If you need to add extra headers just add them below the URL line, one on each l
 	Cookie : SOME_COOKIE
 
 Use the right-click context menu command *Http Requester* or the keyboard shortcut *CTRL + ALT + R*  ( *COMMAND + ALT + R* on Mac OS X ).
+Update: *F5* refreshes last request.
 
 ###POST/PUT usage
 Just add **POST_BODY:** after any extra headers and the body on the following lines:

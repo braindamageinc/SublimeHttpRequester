@@ -2,5 +2,9 @@
 	{
 		"keys": ["super+alt+r"],
 		"command": "http_requester"
+	},
+	{
+		"keys": ["f5"],
+		"command": "http_requester_refresh"	
 	}
 ]

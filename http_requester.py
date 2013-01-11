@@ -4,7 +4,9 @@ import sublime, sublime_plugin
 import socket
 import urllib
 
-class HttpRequesterCommand(sublime_plugin.TextCommand):
+gPrevHttpRequest = ""
+
+class HttpRequester():
 
     REQUEST_TYPE_GET = "GET"
     REQUEST_TYPE_POST = "POST"
@@ -22,16 +24,61 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
 
     CONTENT_LENGTH_HEADER = "Content-lenght"
 
-    def createWindowWithText(self, textToDisplay):
-        newView = self.view.window().new_file()
-        edit = newView.begin_edit()
-        newView.insert(edit, 0, textToDisplay)
-        newView.end_edit(edit)
-        newView.set_scratch(True)
-        newView.set_read_only(True)
-        newView.set_name("http response")
-        newView.set_syntax_file("Packages/HTML/HTML.tmLanguage")
-        return newView.id()
+    def __init__(self, resultsPresenter):        
+        self.resultsPresenter = resultsPresenter
+
+    def request(self, selection):
+        DEFAULT_TIMEOUT = 10
+        FAKE_CURL_UA = "curl/7.21.0 (i486-pc-linux-gnu) libcurl/7.21.0 OpenSSL/0.9.8o zlib/1.2.3.4 libidn/1.15 libssh2/1.2.6"
+        MY_UA = "python httpRequester 1.0.0"
+
+        lines = selection.split("\n");
+
+        # trim any whitespaces for all lines
+        for idx in range(0, len(lines)):
+            lines[idx] = lines[idx].lstrip()
+            lines[idx] = lines[idx].rstrip()
+
+        # get request web address and req. type from the first line
+        (url, port, request_page, requestType, httpProtocol) = self.extractRequestParams(lines[0])
+
+        print "Requesting...."
+        print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port ,  " PAGE: ", request_page
+
+        #get request headers from the lines below the http address
+        (extra_headers, requestPOSTBody) = self.extractExtraHeaders(lines)
+
+        headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
+
+        for key in extra_headers:
+            headers[key] = extra_headers[key]
+
+        # if valid POST body add Content-lenght header
+        if len(requestPOSTBody) > 0:
+            headers[self.CONTENT_LENGTH_HEADER] = len(requestPOSTBody)
+
+        for key in headers:
+            print "REQ HEADERS ", key, " : ", headers[key]
+        
+        # make http request
+        try:
+            if httpProtocol == self.HTTP_URL:
+                conn = httplib.HTTPConnection(url, port, timeout = DEFAULT_TIMEOUT)
+            else:
+                conn = httplib.HTTPSConnection(url, port, timeout = DEFAULT_TIMEOUT)
+
+            conn.request(requestType, request_page, requestPOSTBody, headers)
+            resp = conn.getresponse()
+            respText = self.getParsedResponse(resp)
+            conn.close()
+        except (socket.error, httplib.HTTPException) as e:            
+            respText = "Error connecting: " + e.strerror
+        except AttributeError as e:
+            print e
+            respText = "HTTPS not supported by your Python version"
+
+        self.resultsPresenter.createWindowWithText(respText)        
+
 
     def extractHttpRequestType(self, line):
         for type in self.httpRequestTypes:
@@ -143,64 +190,49 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
 
         return respText
 
-    def run(self, edit):
 
+class HttpRequesterRefreshCommand(sublime_plugin.TextCommand):
+
+    def run(self, edit):
+        print "here"
+        global gPrevHttpRequest
+        selection = gPrevHttpRequest
+
+        resultsPresenter = ResultsPresenter(self)
+        httpRequester = HttpRequester(resultsPresenter)
+        httpRequester.request(selection)
+
+class ResultsPresenter():
+
+    def __init__(self, sublimePluginCommand):
+        self.sublimePluginCommand = sublimePluginCommand
+
+    def createWindowWithText(self, textToDisplay):
+        newView = self.sublimePluginCommand.view.window().new_file()
+        edit = newView.begin_edit()
+        newView.insert(edit, 0, textToDisplay)
+        newView.end_edit(edit)
+        newView.set_scratch(True)
+        newView.set_read_only(True)
+        newView.set_name("http response")
+        newView.set_syntax_file("Packages/HTML/HTML.tmLanguage")
+        return newView.id()
+
+
+class HttpRequesterCommand(sublime_plugin.TextCommand):
+
+    def run(self, edit):
+        global gPrevHttpRequest
         selection = ""
         for region in self.view.sel():
             # Concatenate selected regions together.
             selection += self.view.substr(region)
 
-        DEFAULT_TIMEOUT = 10
-        FAKE_CURL_UA = "curl/7.21.0 (i486-pc-linux-gnu) libcurl/7.21.0 OpenSSL/0.9.8o zlib/1.2.3.4 libidn/1.15 libssh2/1.2.6"
-        MY_UA = "python httpRequester 1.0.0"
+        gPrevHttpRequest = selection
+        resultsPresenter = ResultsPresenter(self)
+        httpRequester = HttpRequester(resultsPresenter)
+        httpRequester.request(selection)
 
-        lines = selection.split("\n");
-
-        # trim any whitespaces for all lines
-        for idx in range(0, len(lines)):
-            lines[idx] = lines[idx].lstrip()
-            lines[idx] = lines[idx].rstrip()
-
-        # get request web address and req. type from the first line
-        (url, port, request_page, requestType, httpProtocol) = self.extractRequestParams(lines[0])
-
-        print "Requesting...."
-        print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port ,  " PAGE: ", request_page
-
-        #get request headers from the lines below the http address
-        (extra_headers, requestPOSTBody) = self.extractExtraHeaders(lines)
-
-        headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
-
-        for key in extra_headers:
-            headers[key] = extra_headers[key]
-
-        # if valid POST body add Content-lenght header
-        if len(requestPOSTBody) > 0:
-            headers[self.CONTENT_LENGTH_HEADER] = len(requestPOSTBody)
-
-        for key in headers:
-            print "REQ HEADERS ", key, " : ", headers[key]
-        
-        # make http request
-        try:
-            if httpProtocol == self.HTTP_URL:
-                conn = httplib.HTTPConnection(url, port, timeout = DEFAULT_TIMEOUT)
-            else:
-                conn = httplib.HTTPSConnection(url, port, timeout = DEFAULT_TIMEOUT)
-
-            conn.request(requestType, request_page, requestPOSTBody, headers)
-            resp = conn.getresponse()
-            respText = self.getParsedResponse(resp)
-            conn.close()
-        except (socket.error, httplib.HTTPException) as e:            
-            respText = "Error connecting: " + e.strerror
-        except AttributeError as e:
-            print e
-            respText = "HTTPS not supported by your Python version"
-
-        self.createWindowWithText(respText)        
-        
     def is_visible(self):
 
         is_visible = False
