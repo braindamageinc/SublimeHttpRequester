@@ -38,8 +38,9 @@ class HttpRequester():
         for idx in range(len(lines) - 1, -1, -1):
             lines[idx] = lines[idx].lstrip()
             lines[idx] = lines[idx].rstrip()
-            if lines[idx][0] == "#":
-                del lines[idx]
+            if (len(lines[idx]) > 0):
+                if lines[idx][0] == "#":
+                    del lines[idx]
 
         # get request web address and req. type from the first line
         (url, port, request_page, requestType, httpProtocol) = self.extractRequestParams(lines[0])
