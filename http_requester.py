@@ -24,7 +24,12 @@ class HttpRequester():
 
     CONTENT_LENGTH_HEADER = "Content-lenght"
 
-    def __init__(self, resultsPresenter):        
+    FILE_TYPE_HTML = "html"
+    FILE_TYPE_JSON = "json"
+    FILE_TYPE_XML = "xml"
+    httpContentTypes = [FILE_TYPE_HTML, FILE_TYPE_JSON, FILE_TYPE_XML]
+
+    def __init__(self, resultsPresenter):
         self.resultsPresenter = resultsPresenter
 
     def request(self, selection):
@@ -34,13 +39,10 @@ class HttpRequester():
 
         lines = selection.split("\n");
 
-        # trim any whitespaces for all lines and remove lines starting with a pound character
-        for idx in range(len(lines) - 1, -1, -1):
+        # trim any whitespaces for all lines
+        for idx in range(0, len(lines)):
             lines[idx] = lines[idx].lstrip()
             lines[idx] = lines[idx].rstrip()
-            if (len(lines[idx]) > 0):
-                if lines[idx][0] == "#":
-                    del lines[idx]
 
         # get request web address and req. type from the first line
         (url, port, request_page, requestType, httpProtocol) = self.extractRequestParams(lines[0])
@@ -72,7 +74,7 @@ class HttpRequester():
 
             conn.request(requestType, request_page, requestPOSTBody, headers)
             resp = conn.getresponse()
-            respText = self.getParsedResponse(resp)
+            (respText, fileType) = self.getParsedResponse(resp)
             conn.close()
         except (socket.error, httplib.HTTPException) as e:            
             respText = "Error connecting: " + e.strerror
@@ -80,7 +82,7 @@ class HttpRequester():
             print e
             respText = "HTTPS not supported by your Python version"
 
-        self.resultsPresenter.createWindowWithText(respText)        
+        self.resultsPresenter.createWindowWithText(respText, fileType)
 
 
     def extractHttpRequestType(self, line):
@@ -181,17 +183,34 @@ class HttpRequester():
         return (extra_headers, requestPOSTBody)
 
     def getParsedResponse(self, resp):
+        fileType = self.FILE_TYPE_HTML
         resp_status = "%d " % resp.status + resp.reason + "\n"
         respText = resp_status
 
         for header in resp.getheaders():
             respText += header[0] + ":" + header[1] + "\n"
 
+            # get resp. file type (html, json and xml supported). fallback to html
+            if header[0] == "content-type":
+                fileType = self.getFileTypeFromContentType(header[1])
+
         respText += "\n\n\n"
         respBody = resp.read()
         respText += respBody.decode("utf-8", "replace")
 
-        return respText
+        return (respText, fileType)
+
+    def getFileTypeFromContentType(self, contentType):
+        fileType = self.FILE_TYPE_HTML
+        contentType = contentType.lower()
+
+        print "File type: ", contentType
+
+        for cType in self.httpContentTypes:
+            if cType in contentType:
+                fileType = cType
+
+        return fileType
 
 
 class HttpRequesterRefreshCommand(sublime_plugin.TextCommand):
@@ -210,15 +229,22 @@ class ResultsPresenter():
     def __init__(self, sublimePluginCommand):
         self.sublimePluginCommand = sublimePluginCommand
 
-    def createWindowWithText(self, textToDisplay):
+    def createWindowWithText(self, textToDisplay, fileType):
         newView = self.sublimePluginCommand.view.window().new_file()
         edit = newView.begin_edit()
         newView.insert(edit, 0, textToDisplay)
         newView.end_edit(edit)
         newView.set_scratch(True)
-        newView.set_read_only(True)
+        newView.set_read_only(False)
         newView.set_name("http response")
-        newView.set_syntax_file("Packages/HTML/HTML.tmLanguage")
+
+        if fileType == HttpRequester.FILE_TYPE_HTML:
+            newView.set_syntax_file("Packages/HTML/HTML.tmLanguage")
+        if fileType == HttpRequester.FILE_TYPE_JSON:
+            newView.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
+        if fileType == HttpRequester.FILE_TYPE_XML:
+            newView.set_syntax_file("Packages/XML/XML.tmLanguage")
+
         return newView.id()
 
 
