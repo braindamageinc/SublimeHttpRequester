@@ -8,7 +8,7 @@ Contact: [braindamageinc@gmail.com](mailto:braindamageinc@gmail.com)
 ##Summary
 Makes HTTP requests using the selected text as URL + headers. Usefull for testing REST APIs from Sublime Text 2 editor. 
 
-##Update: GET/PUT/POST/DELETE supported. F5 refreshes last request
+##Update: Added support for requests through proxy
 
 ##Usage
 Select the text that represents an URL. Examples of requests:
@@ -51,6 +51,14 @@ For PUT:
 Same as HTTP GET:
 
 	DELETE http://yoururl.com/deletethis
+
+###Requesting through a proxy
+If you need to send the request through a proxy server you can use:
+
+	GET www.yourtest.com
+	USE_PROXY: 127.0.0.1:1234
+
+Where *127.0.0.1* is the proxy server address (IP or URL) followed by the port number. **Warning** : allways append a port number, even if it's *80*
 	
 ## Installation
 Using the Sublime Text 2 Package Control plugin (http://wbond.net/sublime_packages/package_control)

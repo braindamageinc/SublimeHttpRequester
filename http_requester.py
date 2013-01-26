@@ -1,6 +1,7 @@
 import httplib
 import sublime_plugin
 import socket
+import types
 
 gPrevHttpRequest = ""
 
@@ -20,6 +21,8 @@ class HttpRequester():
     httpProtocolTypes = [HTTP_URL, HTTPS_URL]
 
     HTTP_POST_BODY_START = "POST_BODY:"
+
+    HTTP_PROXY_HEADER = "USE_PROXY"
 
     CONTENT_LENGTH_HEADER = "Content-lenght"
 
@@ -53,7 +56,7 @@ class HttpRequester():
         print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port, " PAGE: ", request_page
 
         #get request headers from the lines below the http address
-        (extra_headers, requestPOSTBody) = self.extractExtraHeaders(lines)
+        (extra_headers, requestPOSTBody, proxyURL, proxyPort) = self.extractExtraHeaders(lines)
 
         headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
 
@@ -67,19 +70,35 @@ class HttpRequester():
         for key in headers:
             print "REQ HEADERS ", key, " : ", headers[key]
 
+        respText = ""
+        fileType = ""
+
+        useProxy = False
+        if len(proxyURL) > 0:
+            useProxy = True
+
         # make http request
         try:
-            if httpProtocol == self.HTTP_URL:
-                conn = httplib.HTTPConnection(url, port, timeout=DEFAULT_TIMEOUT)
-            else:
-                conn = httplib.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT)
+            if not(useProxy):
+                if httpProtocol == self.HTTP_URL:
+                    conn = httplib.HTTPConnection(url, port, timeout=DEFAULT_TIMEOUT)
+                else:
+                    conn = httplib.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT)
 
-            conn.request(requestType, request_page, requestPOSTBody, headers)
+                conn.request(requestType, request_page, requestPOSTBody, headers)
+            else:
+                print "Using proxy: ", proxyURL + ":" + str(proxyPort)
+                conn = httplib.HTTPConnection(proxyURL, proxyPort, timeout=DEFAULT_TIMEOUT)
+                conn.request(requestType, httpProtocol + url + request_page, requestPOSTBody, headers)
+
             resp = conn.getresponse()
             (respText, fileType) = self.getParsedResponse(resp)
             conn.close()
-        except (socket.error, httplib.HTTPException) as e:
-            respText = "Error connecting: " + e.strerror
+        except (socket.error, httplib.HTTPException, socket.timeout) as e:
+            if not(isinstance(e, types.NoneType)):
+                respText = "Error connecting: " + str(e)
+            else:
+                respText = "Error connecting"
         except AttributeError as e:
             print e
             respText = "HTTPS not supported by your Python version"
@@ -157,6 +176,20 @@ class HttpRequester():
                 header_name = header_parts[0].rstrip()
                 header_value = header_parts[1].lstrip()
                 return (header_name, header_value, readingPOSTBody)
+            else:
+                # may be proxy address URL:port
+                if len(header_parts) > 2:
+                    header_name = header_parts[0].rstrip()
+                    header_value = header_parts[1]
+                    header_value = header_value.lstrip()
+                    header_value = header_value.rstrip()
+                    for idx in range(2, len(header_parts)):
+                        currentValue = header_parts[idx]
+                        currentValue = currentValue.lstrip()
+                        currentValue = currentValue.rstrip()
+                        header_value = header_value + ":" + currentValue
+
+                    return (header_name, header_value, readingPOSTBody)
 
         return (None, None, readingPOSTBody)
 
@@ -166,6 +199,9 @@ class HttpRequester():
         lastLine = False
         numLines = len(headerLines)
 
+        proxyURL = ""
+        proxyPort = 0
+
         extra_headers = {}
         if len(headerLines) > 1:
             for i in range(1, numLines):
@@ -173,7 +209,10 @@ class HttpRequester():
                 if not(readingPOSTBody):
                     (header_name, header_value, readingPOSTBody) = self.getHeaderNameAndValueFromLine(headerLines[i])
                     if header_name != None:
-                        extra_headers[header_name] = header_value
+                        if header_name != self.HTTP_PROXY_HEADER:
+                            extra_headers[header_name] = header_value
+                        else:
+                            (proxyURL, proxyPort) = self.getProxyURLandPort(header_value)
                 else:  # read all following lines as HTTP POST body
                     lineBreak = ""
                     if not(lastLine):
@@ -181,7 +220,27 @@ class HttpRequester():
 
                     requestPOSTBody = requestPOSTBody + headerLines[i] + lineBreak
 
-        return (extra_headers, requestPOSTBody)
+        return (extra_headers, requestPOSTBody, proxyURL, proxyPort)
+
+    def getProxyURLandPort(self, proxyAddress):
+        proxyURL = ""
+        proxyPort = 0
+
+        proxyParts = proxyAddress.split(":")
+
+        proxyURL = proxyParts[0]
+
+        if len(proxyParts) > 1:
+            proxyURL = proxyParts[0]
+            for idx in range(1, len(proxyParts) - 1):
+                proxyURL = proxyURL + ":" + proxyParts[idx]
+
+            lastIdx = len(proxyParts) - 1
+            proxyPort = int(proxyParts[lastIdx])
+        else:
+            proxyPort = 80
+
+        return (proxyURL, proxyPort)
 
     def getParsedResponse(self, resp):
         fileType = self.FILE_TYPE_HTML
