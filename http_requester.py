@@ -1,10 +1,9 @@
-import webbrowser
 import httplib
-import sublime, sublime_plugin
+import sublime_plugin
 import socket
-import urllib
 
 gPrevHttpRequest = ""
+
 
 class HttpRequester():
 
@@ -37,7 +36,7 @@ class HttpRequester():
         FAKE_CURL_UA = "curl/7.21.0 (i486-pc-linux-gnu) libcurl/7.21.0 OpenSSL/0.9.8o zlib/1.2.3.4 libidn/1.15 libssh2/1.2.6"
         MY_UA = "python httpRequester 1.0.0"
 
-        lines = selection.split("\n");
+        lines = selection.split("\n")
 
         # trim any whitespaces for all lines and remove lines starting with a pound character
         for idx in range(len(lines) - 1, -1, -1):
@@ -51,7 +50,7 @@ class HttpRequester():
         (url, port, request_page, requestType, httpProtocol) = self.extractRequestParams(lines[0])
 
         print "Requesting...."
-        print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port ,  " PAGE: ", request_page
+        print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port, " PAGE: ", request_page
 
         #get request headers from the lines below the http address
         (extra_headers, requestPOSTBody) = self.extractExtraHeaders(lines)
@@ -67,26 +66,25 @@ class HttpRequester():
 
         for key in headers:
             print "REQ HEADERS ", key, " : ", headers[key]
-        
+
         # make http request
         try:
             if httpProtocol == self.HTTP_URL:
-                conn = httplib.HTTPConnection(url, port, timeout = DEFAULT_TIMEOUT)
+                conn = httplib.HTTPConnection(url, port, timeout=DEFAULT_TIMEOUT)
             else:
-                conn = httplib.HTTPSConnection(url, port, timeout = DEFAULT_TIMEOUT)
+                conn = httplib.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT)
 
             conn.request(requestType, request_page, requestPOSTBody, headers)
             resp = conn.getresponse()
             (respText, fileType) = self.getParsedResponse(resp)
             conn.close()
-        except (socket.error, httplib.HTTPException) as e:            
+        except (socket.error, httplib.HTTPException) as e:
             respText = "Error connecting: " + e.strerror
         except AttributeError as e:
             print e
             respText = "HTTPS not supported by your Python version"
 
         self.resultsPresenter.createWindowWithText(respText, fileType)
-
 
     def extractHttpRequestType(self, line):
         for type in self.httpRequestTypes:
@@ -96,8 +94,8 @@ class HttpRequester():
         return ""
 
     def extractWebAdressPart(self, line):
-        webAddress = ""        
-        for protocol in self.httpProtocolTypes:            
+        webAddress = ""
+        for protocol in self.httpProtocolTypes:
             requestPartions = line.partition(protocol)
             if requestPartions[1] == "":
                 webAddress = requestPartions[0]
@@ -112,11 +110,11 @@ class HttpRequester():
         if requestType == "":
             requestType = self.REQUEST_TYPE_GET
         else:
-             partition = requestLine.partition(requestType)
-             requestLine = partition[2].lstrip()
+            partition = requestLine.partition(requestType)
+            requestLine = partition[2].lstrip()
 
         # remove http:// or https:// from URL
-        (webAddress, protocol) = self.extractWebAdressPart(requestLine)        
+        (webAddress, protocol) = self.extractWebAdressPart(requestLine)
 
         request_parts = webAddress.split("/")
         request_page = ""
@@ -124,7 +122,7 @@ class HttpRequester():
             for idx in range(1, len(request_parts)):
                 request_page = request_page + "/" + request_parts[idx]
         else:
-            request_page = "/"        
+            request_page = "/"
 
         url_parts = request_parts[0].split(":")
 
@@ -136,8 +134,8 @@ class HttpRequester():
         else:
             port = httplib.HTTPS_PORT
 
-        if len(url_parts) > url_idx+1:
-            port = int(url_parts[url_idx+1]) 
+        if len(url_parts) > url_idx + 1:
+            port = int(url_parts[url_idx + 1])
 
         # convert requested page to utf-8 and replace spaces with +
         request_page = request_page.encode('utf-8')
@@ -176,7 +174,7 @@ class HttpRequester():
                     (header_name, header_value, readingPOSTBody) = self.getHeaderNameAndValueFromLine(headerLines[i])
                     if header_name != None:
                         extra_headers[header_name] = header_value
-                else:   #read all following lines as HTTP POST body
+                else:  # read all following lines as HTTP POST body
                     lineBreak = ""
                     if not(lastLine):
                         lineBreak = "\n"
@@ -226,6 +224,7 @@ class HttpRequesterRefreshCommand(sublime_plugin.TextCommand):
         resultsPresenter = ResultsPresenter(self)
         httpRequester = HttpRequester(resultsPresenter)
         httpRequester.request(selection)
+
 
 class ResultsPresenter():
 
