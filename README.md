@@ -8,6 +8,8 @@ Contact: [braindamageinc@gmail.com](mailto:braindamageinc@gmail.com)
 ##Summary
 Makes HTTP requests using the selected text as URL + headers. Usefull for testing REST APIs from Sublime Text 2 editor. 
 
+##Update: Requests are threaded now, with progress report in status bar.
+
 ##Update: Added support for requests through proxy
 
 ##Usage
