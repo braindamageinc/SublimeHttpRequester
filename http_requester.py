@@ -25,6 +25,9 @@ class HttpRequester():
 
     HTTP_PROXY_HEADER = "USE_PROXY"
 
+    HTTPS_SSL_CLIENT_CERT = "CLIENT_SSL_CERT"
+    HTTPS_SSL_CLIENT_KEY = "CLIENT_SSL_KEY"
+
     CONTENT_LENGTH_HEADER = "Content-lenght"
 
     FILE_TYPE_HTML = "html"
@@ -56,8 +59,9 @@ class HttpRequester():
         print "Requesting...."
         print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port, " PAGE: ", request_page
 
-        #get request headers from the lines below the http address
-        (extra_headers, requestPOSTBody, proxyURL, proxyPort) = self.extractExtraHeaders(lines)
+        # get request headers from the lines below the http address
+        (extra_headers, requestPOSTBody, proxyURL, proxyPort, clientSSLCertificateFile,
+         clientSSLKeyFile) = self.extractExtraHeaders(lines)
 
         headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
 
@@ -84,7 +88,12 @@ class HttpRequester():
                 if httpProtocol == self.HTTP_URL:
                     conn = httplib.HTTPConnection(url, port, timeout=DEFAULT_TIMEOUT)
                 else:
-                    conn = httplib.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT)
+                    if len(clientSSLCertificateFile) > 0 or len(clientSSLKeyFile):
+                        print "Using client SSL certificate: ", clientSSLCertificateFile
+                        print "Using client SSL key file: ", clientSSLKeyFile
+                        conn = httplib.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT, cert_file=clientSSLCertificateFile, key_file=clientSSLKeyFile)
+                    else:
+                        conn = httplib.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT)
 
                 conn.request(requestType, request_page, requestPOSTBody, headers)
             else:
@@ -203,17 +212,24 @@ class HttpRequester():
         proxyURL = ""
         proxyPort = 0
 
+        clientSSLCertificateFile = ""
+        clientSSLKeyFile = ""
+
         extra_headers = {}
         if len(headerLines) > 1:
             for i in range(1, numLines):
                 lastLine = (i == numLines - 1)
                 if not(readingPOSTBody):
                     (header_name, header_value, readingPOSTBody) = self.getHeaderNameAndValueFromLine(headerLines[i])
-                    if header_name != None:
-                        if header_name != self.HTTP_PROXY_HEADER:
-                            extra_headers[header_name] = header_value
-                        else:
+                    if header_name is not None:
+                        if header_name == self.HTTP_PROXY_HEADER:
                             (proxyURL, proxyPort) = self.getProxyURLandPort(header_value)
+                        elif header_name == self.HTTPS_SSL_CLIENT_CERT:
+                            clientSSLCertificateFile = header_value
+                        elif header_name == self.HTTPS_SSL_CLIENT_KEY:
+                            clientSSLKeyFile = header_value
+                        else:
+                            extra_headers[header_name] = header_value
                 else:  # read all following lines as HTTP POST body
                     lineBreak = ""
                     if not(lastLine):
@@ -221,7 +237,7 @@ class HttpRequester():
 
                     requestPOSTBody = requestPOSTBody + headerLines[i] + lineBreak
 
-        return (extra_headers, requestPOSTBody, proxyURL, proxyPort)
+        return (extra_headers, requestPOSTBody, proxyURL, proxyPort, clientSSLCertificateFile, clientSSLKeyFile)
 
     def getProxyURLandPort(self, proxyAddress):
         proxyURL = ""
