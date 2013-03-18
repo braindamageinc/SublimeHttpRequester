@@ -3,11 +3,23 @@ import sublime
 import sublime_plugin
 import socket
 import types
+import threading
 
 gPrevHttpRequest = ""
 
+CHECK_DOWNLOAD_THREAD_TIME_MS = 1000
 
-class HttpRequester():
+
+def monitorDownloadThread(downloadThread):
+    if downloadThread.is_alive():
+        msg = downloadThread.getCurrentMessage()
+        sublime.status_message(msg)
+        sublime.set_timeout(lambda: monitorDownloadThread(downloadThread), CHECK_DOWNLOAD_THREAD_TIME_MS)
+    else:
+        downloadThread.showResultToPresenter()
+
+
+class HttpRequester(threading.Thread):
 
     REQUEST_TYPE_GET = "GET"
     REQUEST_TYPE_POST = "POST"
@@ -30,18 +42,30 @@ class HttpRequester():
 
     CONTENT_LENGTH_HEADER = "Content-lenght"
 
+    MAX_BYTES_BUFFER_SIZE = 8192
+
     FILE_TYPE_HTML = "html"
     FILE_TYPE_JSON = "json"
     FILE_TYPE_XML = "xml"
     httpContentTypes = [FILE_TYPE_HTML, FILE_TYPE_JSON, FILE_TYPE_XML]
 
     def __init__(self, resultsPresenter):
+        self.totalBytesDownloaded = 0
+        self.contentLenght = 0
         self.resultsPresenter = resultsPresenter
+        threading.Thread.__init__(self)
 
     def request(self, selection):
+        self.selection = selection
+        self.start()
+        sublime.set_timeout(lambda: monitorDownloadThread(self), CHECK_DOWNLOAD_THREAD_TIME_MS)
+
+    def run(self):
         DEFAULT_TIMEOUT = 10
         FAKE_CURL_UA = "curl/7.21.0 (i486-pc-linux-gnu) libcurl/7.21.0 OpenSSL/0.9.8o zlib/1.2.3.4 libidn/1.15 libssh2/1.2.6"
         MY_UA = "python httpRequester 1.0.0"
+
+        selection = self.selection
 
         lines = selection.split("\n")
 
@@ -60,8 +84,7 @@ class HttpRequester():
         print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port, " PAGE: ", request_page
 
         # get request headers from the lines below the http address
-        (extra_headers, requestPOSTBody, proxyURL, proxyPort, clientSSLCertificateFile,
-         clientSSLKeyFile) = self.extractExtraHeaders(lines)
+        (extra_headers, requestPOSTBody, proxyURL, proxyPort) = self.extractExtraHeaders(lines)
 
         headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
 
@@ -113,7 +136,8 @@ class HttpRequester():
             print e
             respText = "HTTPS not supported by your Python version"
 
-        self.resultsPresenter.createWindowWithText(respText, fileType)
+        self.respText = respText
+        self.fileType = fileType
 
     def extractHttpRequestType(self, line):
         for type in self.httpRequestTypes:
@@ -272,7 +296,19 @@ class HttpRequester():
                 fileType = self.getFileTypeFromContentType(header[1])
 
         respText += "\n\n\n"
-        respBody = resp.read()
+
+        self.contentLenght = int(resp.getheader("content-length", 0))
+
+        # download a 8KB buffer at a time
+        respBody = resp.read(self.MAX_BYTES_BUFFER_SIZE)
+        numDownloaded = len(respBody)
+        self.totalBytesDownloaded = numDownloaded
+        while numDownloaded == self.MAX_BYTES_BUFFER_SIZE:
+            data = resp.read(self.MAX_BYTES_BUFFER_SIZE)
+            respBody += data
+            numDownloaded = len(data)
+            self.totalBytesDownloaded += numDownloaded
+
         respText += respBody.decode("utf-8", "replace")
 
         return (respText, fileType)
@@ -289,6 +325,12 @@ class HttpRequester():
 
         return fileType
 
+    def getCurrentMessage(self):
+        return "HttpRequester downloading " + str(self.totalBytesDownloaded) + " / " + str(self.contentLenght)
+
+    def showResultToPresenter(self):
+        self.resultsPresenter.createWindowWithText(self.respText, self.fileType)
+
 
 class HttpRequesterRefreshCommand(sublime_plugin.TextCommand):
 
@@ -304,11 +346,11 @@ class HttpRequesterRefreshCommand(sublime_plugin.TextCommand):
 
 class ResultsPresenter():
 
-    def __init__(self, sublimePluginCommand):
-        self.sublimePluginCommand = sublimePluginCommand
+    def __init__(self):
+        pass
 
     def createWindowWithText(self, textToDisplay, fileType):
-        newView = self.sublimePluginCommand.view.window().new_file()
+        newView = sublime.active_window().new_file()
         edit = newView.begin_edit()
         newView.insert(edit, 0, textToDisplay)
         newView.end_edit(edit)
@@ -341,7 +383,7 @@ class HttpRequesterCommand(sublime_plugin.TextCommand):
             selection = self.view.substr(entireDocument)
 
         gPrevHttpRequest = selection
-        resultsPresenter = ResultsPresenter(self)
+        resultsPresenter = ResultsPresenter()
         httpRequester = HttpRequester(resultsPresenter)
         httpRequester.request(selection)
 
