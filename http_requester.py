@@ -32,7 +32,7 @@ class HttpRequester(threading.Thread):
     HTTPS_URL = "https://"
 
     httpProtocolTypes = [HTTP_URL, HTTPS_URL]
-    
+
     HTTP_POST_BODY_START = "POST_BODY:"
 
     HTTP_PROXY_HEADER = "USE_PROXY"
@@ -112,7 +112,7 @@ class HttpRequester(threading.Thread):
                 if httpProtocol == self.HTTP_URL:
                     conn = httplib.HTTPConnection(url, port, timeout=DEFAULT_TIMEOUT)
                 else:
-                    if len(clientSSLCertificateFile) > 0 or len(clientSSLKeyFile):
+                    if len(clientSSLCertificateFile) > 0 or len(clientSSLKeyFile) > 0:
                         print "Using client SSL certificate: ", clientSSLCertificateFile
                         print "Using client SSL key file: ", clientSSLKeyFile
                         conn = httplib.HTTPSConnection(
