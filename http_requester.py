@@ -337,11 +337,10 @@ class HttpRequester(threading.Thread):
 class HttpRequesterRefreshCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
-        print "here"
         global gPrevHttpRequest
         selection = gPrevHttpRequest
 
-        resultsPresenter = ResultsPresenter(self)
+        resultsPresenter = ResultsPresenter()
         httpRequester = HttpRequester(resultsPresenter)
         httpRequester.request(selection)
 
