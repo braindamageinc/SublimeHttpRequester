@@ -6,7 +6,7 @@
 Contact: [braindamageinc@gmail.com](mailto:braindamageinc@gmail.com)
 
 ##Summary
-Makes HTTP requests using the selected text as URL + headers. Usefull for testing REST APIs from Sublime Text 2 editor. 
+Makes HTTP requests using the selected text as URL + headers. Useful for testing REST APIs from Sublime Text 2 editor. 
 
 ##Update: Added client SSL certificates
 
