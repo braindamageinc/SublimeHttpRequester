@@ -67,7 +67,11 @@ If you need client SSL certification you can use:
 	CLIENT_SSL_CERT: certif_file.pem
 	CLIENT_SSL_KEY: key_file.key
 
+###Using html charset
+If you need to make a request for a page with a specific encoding such as cyrillic you can use:
 
+	GET https://yoursecureserver.com
+	CHARSET: cp1251
 	
 ## Installation
 Using the Sublime Text 2 Package Control plugin (http://wbond.net/sublime_packages/package_control)

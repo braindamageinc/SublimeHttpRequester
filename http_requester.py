@@ -47,6 +47,10 @@ class HttpRequester(threading.Thread):
     FILE_TYPE_HTML = "html"
     FILE_TYPE_JSON = "json"
     FILE_TYPE_XML = "xml"
+
+    HTML_CHARSET_HEADER = "CHARSET"
+    htmlCharset = "utf-8"
+
     httpContentTypes = [FILE_TYPE_HTML, FILE_TYPE_JSON, FILE_TYPE_XML]
 
     def __init__(self, resultsPresenter):
@@ -63,7 +67,6 @@ class HttpRequester(threading.Thread):
     def run(self):
         DEFAULT_TIMEOUT = 10
         FAKE_CURL_UA = "curl/7.21.0 (i486-pc-linux-gnu) libcurl/7.21.0 OpenSSL/0.9.8o zlib/1.2.3.4 libidn/1.15 libssh2/1.2.6"
-        MY_UA = "python httpRequester 1.0.0"
 
         selection = self.selection
 
@@ -242,6 +245,7 @@ class HttpRequester(threading.Thread):
         clientSSLKeyFile = ""
 
         extra_headers = {}
+
         if len(headerLines) > 1:
             for i in range(1, numLines):
                 lastLine = (i == numLines - 1)
@@ -254,6 +258,8 @@ class HttpRequester(threading.Thread):
                             clientSSLCertificateFile = header_value
                         elif header_name == self.HTTPS_SSL_CLIENT_KEY:
                             clientSSLKeyFile = header_value
+                        elif header_name == self.HTML_CHARSET_HEADER:
+                            self.htmlCharset = header_value
                         else:
                             extra_headers[header_name] = header_value
                 else:  # read all following lines as HTTP POST body
@@ -311,7 +317,7 @@ class HttpRequester(threading.Thread):
             numDownloaded = len(data)
             self.totalBytesDownloaded += numDownloaded
 
-        respText += respBody.decode("utf-8", "replace")
+        respText += respBody.decode(self.htmlCharset, "replace")
 
         return (respText, fileType)
 
