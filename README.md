@@ -1,12 +1,12 @@
 ***
-# SublimeHttpRequester - HTTP client plugin for Sublime Text 2
+# SublimeHttpRequester - HTTP client plugin for Sublime Text 3
 ***
 ====================
 
 Contact: [braindamageinc@gmail.com](mailto:braindamageinc@gmail.com)
 
 ##Summary
-Makes HTTP requests using the selected text as URL + headers. Useful for testing REST APIs from Sublime Text 2 editor. 
+Makes HTTP requests using the selected text as URL + headers. Useful for testing REST APIs from Sublime Text 3 editor. 
 
 ##Update: Added client SSL certificates
 
@@ -74,7 +74,7 @@ If you need to make a request for a page with a specific encoding such as cyrill
 	CHARSET: cp1251
 	
 ## Installation
-Using the Sublime Text 2 Package Control plugin (http://wbond.net/sublime_packages/package_control)
+Using the Sublime Text 3 Package Control plugin (http://wbond.net/sublime_packages/package_control)
 press *CTRL + SHIFT + P* and find **Package Control: Install Package** and press *Enter*.
 Find this plugin in the list by name **Http Requester**.
 
