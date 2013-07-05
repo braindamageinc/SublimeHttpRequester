@@ -1,9 +1,9 @@
-import httplib
 import sublime
 import sublime_plugin
 import socket
 import types
 import threading
+import http.client
 
 gPrevHttpRequest = ""
 
@@ -83,8 +83,8 @@ class HttpRequester(threading.Thread):
         # get request web address and req. type from the first line
         (url, port, request_page, requestType, httpProtocol) = self.extractRequestParams(lines[0])
 
-        print "Requesting...."
-        print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port, " PAGE: ", request_page
+        print ("Requesting....")
+        print (requestType, " ", httpProtocol, " HOST ", url, " PORT ", port, " PAGE: ", request_page)
 
         # get request headers from the lines below the http address
         (extra_headers, requestPOSTBody, proxyURL, proxyPort, clientSSLCertificateFile,
@@ -100,7 +100,7 @@ class HttpRequester(threading.Thread):
             headers[self.CONTENT_LENGTH_HEADER] = len(requestPOSTBody)
 
         for key in headers:
-            print "REQ HEADERS ", key, " : ", headers[key]
+            print ("REQ HEADERS ", key, " : ", headers[key])
 
         respText = ""
         fileType = ""
@@ -113,32 +113,32 @@ class HttpRequester(threading.Thread):
         try:
             if not(useProxy):
                 if httpProtocol == self.HTTP_URL:
-                    conn = httplib.HTTPConnection(url, port, timeout=DEFAULT_TIMEOUT)
+                    conn = http.client.HTTPConnection(url, port, timeout=DEFAULT_TIMEOUT)
                 else:
                     if len(clientSSLCertificateFile) > 0 or len(clientSSLKeyFile) > 0:
-                        print "Using client SSL certificate: ", clientSSLCertificateFile
-                        print "Using client SSL key file: ", clientSSLKeyFile
-                        conn = httplib.HTTPSConnection(
+                        print ("Using client SSL certificate: ", clientSSLCertificateFile)
+                        print ("Using client SSL key file: ", clientSSLKeyFile)
+                        conn = http.client.HTTPSConnection(
                             url, port, timeout=DEFAULT_TIMEOUT, cert_file=clientSSLCertificateFile, key_file=clientSSLKeyFile)
                     else:
-                        conn = httplib.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT)
+                        conn = http.client.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT)
 
                 conn.request(requestType, request_page, requestPOSTBody, headers)
             else:
-                print "Using proxy: ", proxyURL + ":" + str(proxyPort)
-                conn = httplib.HTTPConnection(proxyURL, proxyPort, timeout=DEFAULT_TIMEOUT)
+                print ("Using proxy: ", proxyURL + ":" + str(proxyPort))
+                conn = http.client.HTTPConnection(proxyURL, proxyPort, timeout=DEFAULT_TIMEOUT)
                 conn.request(requestType, httpProtocol + url + request_page, requestPOSTBody, headers)
 
             resp = conn.getresponse()
             (respText, fileType) = self.getParsedResponse(resp)
             conn.close()
-        except (socket.error, httplib.HTTPException, socket.timeout) as e:
+        except (socket.error, http.client.HTTPException, socket.timeout) as e:
             if not(isinstance(e, types.NoneType)):
                 respText = "Error connecting: " + str(e)
             else:
                 respText = "Error connecting"
         except AttributeError as e:
-            print e
+            print (e)
             respText = "HTTPS not supported by your Python version"
 
         self.respText = respText
@@ -188,15 +188,17 @@ class HttpRequester(threading.Thread):
         url = url_parts[url_idx]
 
         if protocol == self.HTTP_URL:
-            port = httplib.HTTP_PORT
+            port = http.client.HTTP_PORT
         else:
-            port = httplib.HTTPS_PORT
+            port = http.client.HTTPS_PORT
 
         if len(url_parts) > url_idx + 1:
             port = int(url_parts[url_idx + 1])
 
         # convert requested page to utf-8 and replace spaces with +
         request_page = request_page.encode('utf-8')
+        request_page = request_page.decode('utf-8')
+
         request_page = request_page.replace(' ', '+')
 
         return (url, port, request_page, requestType, protocol)
@@ -325,7 +327,7 @@ class HttpRequester(threading.Thread):
         fileType = self.FILE_TYPE_HTML
         contentType = contentType.lower()
 
-        print "File type: ", contentType
+        print ("File type: ", contentType)
 
         for cType in self.httpContentTypes:
             if cType in contentType:
@@ -351,6 +353,12 @@ class HttpRequesterRefreshCommand(sublime_plugin.TextCommand):
         httpRequester.request(selection)
 
 
+class HttpRequesterTextWriter(sublime_plugin.TextCommand):
+
+    def run(self, edit, **args):
+        self.view.insert(edit, 0, args["text"])
+
+
 class ResultsPresenter():
 
     def __init__(self):
@@ -358,9 +366,7 @@ class ResultsPresenter():
 
     def createWindowWithText(self, textToDisplay, fileType):
         newView = sublime.active_window().new_file()
-        edit = newView.begin_edit()
-        newView.insert(edit, 0, textToDisplay)
-        newView.end_edit(edit)
+        newView.run_command("http_requester_text_writer", {"text":textToDisplay})
         newView.set_scratch(True)
         newView.set_read_only(False)
         newView.set_name("http response")
