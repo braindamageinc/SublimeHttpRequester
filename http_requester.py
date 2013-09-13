@@ -133,7 +133,7 @@ class HttpRequester(threading.Thread):
             (respText, fileType) = self.getParsedResponse(resp)
             conn.close()
         except (socket.error, http.client.HTTPException, socket.timeout) as e:
-            if not(isinstance(e, types.NoneType)):
+            if not(isinstance(e, type(None))):
                 respText = "Error connecting: " + str(e)
             else:
                 respText = "Error connecting"
