@@ -1,5 +1,5 @@
 ***
-# SublimeHttpRequester - HTTP client plugin for Sublime Text 2
+# SublimeHttpRequester - HTTP client plugin for Sublime Text 2 & 3
 ***
 ====================
 
@@ -74,8 +74,8 @@ If you need to make a request for a page with a specific encoding such as cyrill
 	CHARSET: cp1251
 	
 ## Installation
-Using the Sublime Text 2 Package Control plugin (http://wbond.net/sublime_packages/package_control)
+Using the Sublime Text 2/3 Package Control plugin (http://wbond.net/sublime_packages/package_control)
 press *CTRL + SHIFT + P* and find **Package Control: Install Package** and press *Enter*.
 Find this plugin in the list by name **Http Requester**.
 
-Or git clone to your Sublime Text 2 packages folder directly (usually located at /Sublime Text 2/Packages/).
+Or git clone to your Sublime Text 2/3 packages folder directly (usually located at /Sublime Text 2/Packages/ or /Sublime Text 3/Packages/).
