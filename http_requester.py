@@ -53,6 +53,9 @@ class HttpRequester(threading.Thread):
 
     httpContentTypes = [FILE_TYPE_HTML, FILE_TYPE_JSON, FILE_TYPE_XML]
 
+    HTML_SHOW_RESULTS_SAME_FILE_HEADER = "SAME_FILE"
+    showResultInSameFile = False
+
     def __init__(self, resultsPresenter):
         self.totalBytesDownloaded = 0
         self.contentLenght = 0
@@ -87,7 +90,7 @@ class HttpRequester(threading.Thread):
         print requestType, " ", httpProtocol, " HOST ", url, " PORT ", port, " PAGE: ", request_page
 
         # get request headers from the lines below the http address
-        (extra_headers, requestPOSTBody, proxyURL, proxyPort, clientSSLCertificateFile,
+        (extra_headers, requestPOSTBody, proxyURL,  proxyPort, clientSSLCertificateFile,
          clientSSLKeyFile) = self.extractExtraHeaders(lines)
 
         headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
@@ -260,6 +263,9 @@ class HttpRequester(threading.Thread):
                             clientSSLKeyFile = header_value
                         elif header_name == self.HTML_CHARSET_HEADER:
                             self.htmlCharset = header_value
+                        elif header_name == self.HTML_SHOW_RESULTS_SAME_FILE_HEADER:
+                            boolDict = {"true": True, "false": False}
+                            self.showResultInSameFile = boolDict.get(header_value.lower())
                         else:
                             extra_headers[header_name] = header_value
                 else:  # read all following lines as HTTP POST body
@@ -337,7 +343,7 @@ class HttpRequester(threading.Thread):
         return "HttpRequester downloading " + str(self.totalBytesDownloaded) + " / " + str(self.contentLenght)
 
     def showResultToPresenter(self):
-        self.resultsPresenter.createWindowWithText(self.respText, self.fileType)
+        self.resultsPresenter.createWindowWithText(self.respText, self.fileType, self.showResultInSameFile)
 
 
 class HttpRequesterRefreshCommand(sublime_plugin.TextCommand):
@@ -356,23 +362,42 @@ class ResultsPresenter():
     def __init__(self):
         pass
 
-    def createWindowWithText(self, textToDisplay, fileType):
-        newView = sublime.active_window().new_file()
-        edit = newView.begin_edit()
-        newView.insert(edit, 0, textToDisplay)
-        newView.end_edit(edit)
-        newView.set_scratch(True)
-        newView.set_read_only(False)
-        newView.set_name("http response")
+    def createWindowWithText(self, textToDisplay, fileType, showResultInSameFile):
+        if not(showResultInSameFile):
+            view = sublime.active_window().new_file()
+            openedNewView = True
+        else:
+            view = self.findHttpResponseView()
+            openedNewView = False
+            if view is None:
+                view = sublime.active_window().new_file()
+                openedNewView = True
+
+        edit = view.begin_edit()
+        if not(openedNewView):
+            view.insert(edit, 0, "\n\n\n")
+        view.insert(edit, 0, textToDisplay)
+        view.end_edit(edit)
+        view.set_scratch(True)
+        view.set_read_only(False)
+        view.set_name("http response")
 
         if fileType == HttpRequester.FILE_TYPE_HTML:
-            newView.set_syntax_file("Packages/HTML/HTML.tmLanguage")
+            view.set_syntax_file("Packages/HTML/HTML.tmLanguage")
         if fileType == HttpRequester.FILE_TYPE_JSON:
-            newView.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
+            view.set_syntax_file("Packages/JavaScript/JSON.tmLanguage")
         if fileType == HttpRequester.FILE_TYPE_XML:
-            newView.set_syntax_file("Packages/XML/XML.tmLanguage")
+            view.set_syntax_file("Packages/XML/XML.tmLanguage")
 
-        return newView.id()
+        return view.id()
+
+    def findHttpResponseView(self):
+        for window in sublime.windows():
+            for view in window.views():
+                if view.name() == "http response":
+                    return view
+
+        return None
 
 
 class HttpRequesterCommand(sublime_plugin.TextCommand):
