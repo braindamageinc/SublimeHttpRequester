@@ -72,6 +72,13 @@ If you need to make a request for a page with a specific encoding such as cyrill
 
 	GET https://yoursecureserver.com
 	CHARSET: cp1251
+
+###Show results in the same results tab
+If you wish to have all the requests responses in the same file (tab), you can use the following param:
+
+	GET http://someserver.com
+	SAME_FILE: True
+
 	
 ## Installation
 Using the Sublime Text 2/3 Package Control plugin (http://wbond.net/sublime_packages/package_control)
