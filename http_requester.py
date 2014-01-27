@@ -101,6 +101,8 @@ class HttpRequester(threading.Thread):
         # if valid POST body add Content-lenght header
         if len(requestPOSTBody) > 0:
             headers[self.CONTENT_LENGTH_HEADER] = len(requestPOSTBody)
+            requestPOSTBody = requestPOSTBody.encode('utf-8')
+
 
         for key in headers:
             print "REQ HEADERS ", key, " : ", headers[key]
