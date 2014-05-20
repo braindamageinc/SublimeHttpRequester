@@ -56,6 +56,9 @@ class HttpRequester(threading.Thread):
     HTML_SHOW_RESULTS_SAME_FILE_HEADER = "SAME_FILE"
     showResultInSameFile = False
 
+    DEFAULT_TIMEOUT = 10
+    TIMEOUT_KEY = "TIMEOUT"
+
     def __init__(self, resultsPresenter):
         self.totalBytesDownloaded = 0
         self.contentLenght = 0
@@ -91,7 +94,7 @@ class HttpRequester(threading.Thread):
 
         # get request headers from the lines below the http address
         (extra_headers, requestPOSTBody, proxyURL, proxyPort, clientSSLCertificateFile,
-         clientSSLKeyFile) = self.extractExtraHeaders(lines)
+         clientSSLKeyFile, timeoutValue) = self.extractExtraHeaders(lines)
 
         headers = {"User-Agent": FAKE_CURL_UA, "Accept": "*/*"}
 
@@ -116,20 +119,20 @@ class HttpRequester(threading.Thread):
         try:
             if not(useProxy):
                 if httpProtocol == self.HTTP_URL:
-                    conn = http.client.HTTPConnection(url, port, timeout=DEFAULT_TIMEOUT)
+                    conn = http.client.HTTPConnection(url, port, timeout=timeoutValue)
                 else:
                     if len(clientSSLCertificateFile) > 0 or len(clientSSLKeyFile) > 0:
                         print ("Using client SSL certificate: ", clientSSLCertificateFile)
                         print ("Using client SSL key file: ", clientSSLKeyFile)
                         conn = http.client.HTTPSConnection(
-                            url, port, timeout=DEFAULT_TIMEOUT, cert_file=clientSSLCertificateFile, key_file=clientSSLKeyFile)
+                            url, port, timeout=timeoutValue, cert_file=clientSSLCertificateFile, key_file=clientSSLKeyFile)
                     else:
-                        conn = http.client.HTTPSConnection(url, port, timeout=DEFAULT_TIMEOUT)
+                        conn = http.client.HTTPSConnection(url, port, timeout=timeoutValue)
 
                 conn.request(requestType, request_page, requestPOSTBody, headers)
             else:
                 print ("Using proxy: ", proxyURL + ":" + str(proxyPort))
-                conn = http.client.HTTPConnection(proxyURL, proxyPort, timeout=DEFAULT_TIMEOUT)
+                conn = http.client.HTTPConnection(proxyURL, proxyPort, timeout=timeoutValue)
                 conn.request(requestType, httpProtocol + url + request_page, requestPOSTBody, headers)
 
             resp = conn.getresponse()
@@ -249,6 +252,8 @@ class HttpRequester(threading.Thread):
         clientSSLCertificateFile = ""
         clientSSLKeyFile = ""
 
+        timeoutValue = self.DEFAULT_TIMEOUT
+
         extra_headers = {}
 
         if len(headerLines) > 1:
@@ -268,6 +273,8 @@ class HttpRequester(threading.Thread):
                         elif header_name == self.HTML_SHOW_RESULTS_SAME_FILE_HEADER:
                             boolDict = {"true": True, "false": False}
                             self.showResultInSameFile = boolDict.get(header_value.lower())
+                        elif header_name == self.TIMEOUT_KEY:
+                            timeoutValue = int(header_value)
                         else:
                             extra_headers[header_name] = header_value
                 else:  # read all following lines as HTTP POST body
@@ -277,7 +284,7 @@ class HttpRequester(threading.Thread):
 
                     requestPOSTBody = requestPOSTBody + headerLines[i] + lineBreak
 
-        return (extra_headers, requestPOSTBody, proxyURL, proxyPort, clientSSLCertificateFile, clientSSLKeyFile)
+        return (extra_headers, requestPOSTBody, proxyURL, proxyPort, clientSSLCertificateFile, clientSSLKeyFile, timeoutValue)
 
     def getProxyURLandPort(self, proxyAddress):
         proxyURL = ""

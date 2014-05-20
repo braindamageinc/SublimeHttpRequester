@@ -79,6 +79,12 @@ If you wish to have all the requests responses in the same file (tab), you can u
 	GET http://someserver.com
 	SAME_FILE: True
 
+###Set custom timeout
+For a custom request timeout value, use the following param (timeout in **seconds**):
+
+	GET http://someserver.com
+	TIMEOUT: 5
+
 ## Installation
 Using the Sublime Text 3 Package Control plugin (http://wbond.net/sublime_packages/package_control)
 press *CTRL + SHIFT + P* and find **Package Control: Install Package** and press *Enter*.
