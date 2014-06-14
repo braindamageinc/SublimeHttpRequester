@@ -8,7 +8,7 @@ Contact: [braindamageinc@gmail.com](mailto:braindamageinc@gmail.com)
 ##Summary
 Makes HTTP requests using the selected text as URL + headers. Useful for testing REST APIs from Sublime Text 3 editor. 
 
-##Update: Added client SSL certificates
+##Update: Added latency and download time output.
 
 ##Usage
 Select the text that represents an URL. Examples of requests:
